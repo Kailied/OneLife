@@ -1,4 +1,4 @@
-int versionNumber = 153;
+int versionNumber = 157;
 int dataVersionNumber = 0;
 
 // NOTE that OneLife doesn't use account hmacs
@@ -111,6 +111,7 @@ char *userEmail = NULL;
 char *accountKey = NULL;
 char *userTwinCode = NULL;
 int userTwinCount = 0;
+char userReconnect = false;
 
 
 // these are needed by ServerActionPage, but we don't use them
@@ -1144,6 +1145,8 @@ void deleteCharFromUserTypedMessage() {
 
 
 static void startConnecting() {
+    userReconnect = false;
+    
     if( SettingsManager::getIntSetting( "useCustomServer", 0 ) ) {
         usingCustomServer = true;
         
@@ -1219,6 +1222,26 @@ void showDiedPage() {
     currentGamePage->base_makeActive( true );
     }
 
+
+
+void showReconnectPage() {
+    lastScreenViewCenter.x = 0;
+    lastScreenViewCenter.y = 0;
+    
+    setViewCenterPosition( lastScreenViewCenter.x, 
+                           lastScreenViewCenter.y );
+    
+    currentGamePage = extendedMessagePage;
+    
+    extendedMessagePage->setMessageKey( "connectionLost" );
+
+    extendedMessagePage->setSubMessage( translate( "willTryReconnect" ) );
+    
+    userReconnect = true;
+    
+    currentGamePage->base_makeActive( true );
+    }
+
     
 
 void drawFrame( char inUpdate ) {    
@@ -1284,7 +1307,12 @@ void drawFrame( char inUpdate ) {
             livingLifePage->checkSignal( "died" ) ) {
             showDiedPage();
             }
-
+        if( currentGamePage == livingLifePage &&
+            livingLifePage->checkSignal( "disconnect" ) ) {
+    
+            showReconnectPage();
+            }
+        
 
         return;
         }
@@ -1484,7 +1512,7 @@ void drawFrame( char inUpdate ) {
                         printf( "Finished loading animation bank in %f sec\n",
                                 Time::getCurrentTime() - 
                                 loadingPhaseStartTime );
-
+                        loadingPhaseStartTime = Time::getCurrentTime();
 
                         char rebuilding;
                         
@@ -1524,7 +1552,7 @@ void drawFrame( char inUpdate ) {
                         printf( "Finished loading object bank in %f sec\n",
                                 Time::getCurrentTime() - 
                                 loadingPhaseStartTime );
-
+                        loadingPhaseStartTime = Time::getCurrentTime();
 
                         char rebuilding;
                         
@@ -1564,7 +1592,7 @@ void drawFrame( char inUpdate ) {
                         printf( "Finished loading category bank in %f sec\n",
                                 Time::getCurrentTime() - 
                                 loadingPhaseStartTime );
-
+                        loadingPhaseStartTime = Time::getCurrentTime();
 
                         char rebuilding;
                         
@@ -1604,7 +1632,12 @@ void drawFrame( char inUpdate ) {
                     
                     if( progress == 1.0 ) {
                         initTransBankFinish();
+                        printf( "Finished loading transition bank in %f sec\n",
+                                Time::getCurrentTime() - 
+                                loadingPhaseStartTime );
                         
+                        loadingPhaseStartTime = Time::getCurrentTime();
+
                         loadingPage->setCurrentPhase( 
                             translate( "groundTextures" ) );
 
@@ -1628,6 +1661,12 @@ void drawFrame( char inUpdate ) {
                     
                     if( progress == 1.0 ) {
                         initGroundSpritesFinish();
+                        printf( "Finished loading ground sprites in %f sec\n",
+                                Time::getCurrentTime() - 
+                                loadingPhaseStartTime );
+                        
+                        loadingPhaseStartTime = Time::getCurrentTime();
+
                         
                         initLiveObjectSet();
 
@@ -1770,30 +1809,54 @@ void drawFrame( char inUpdate ) {
                             "requiredVersionNumber" );
                     
                     if( versionNumber < requiredVersion ) {
-                        
-                        char *autoUpdateURL = 
-                            getServerAddressPage->getResponse( 
-                                "autoUpdateURL" );
 
-                    
-                        char updateStarted = 
-                            startUpdate( autoUpdateURL, versionNumber );
-                        
-                        delete [] autoUpdateURL;
-                        
-                        if( ! updateStarted ) {
+                        if( SettingsManager::getIntSetting( 
+                                "useSteamUpdate", 0 ) ) {
+                            
+                            // flag SteamGate that app needs update
+                            FILE *f = fopen( "steamGateForceUpdate.txt", "w" );
+                            if( f != NULL ) {    
+                                fprintf( f, "1" );
+                                fclose( f );
+                                }
+                            
+                            // launch steamGateClient in parallel
+                            // it will tell Steam that the app is dirty
+                            // and needs to be updated.
+                            runSteamGateClient();
+                            
+
+                            
                             currentGamePage = finalMessagePage;
+                                
+                            finalMessagePage->setMessageKey( 
+                                "upgradeMessageSteam" );
                             
-                            finalMessagePage->setMessageKey( "upgradeMessage" );
-                            
-                            
-                            currentGamePage->base_makeActive( true );
+                            currentGamePage->base_makeActive( true );    
                             }
                         else {
-                            currentGamePage = autoUpdatePage;
-                            currentGamePage->base_makeActive( true );
-                            }
+                            char *autoUpdateURL = 
+                                getServerAddressPage->getResponse( 
+                                    "autoUpdateURL" );
+
+                            char updateStarted = 
+                                startUpdate( autoUpdateURL, versionNumber );
                         
+                            delete [] autoUpdateURL;
+                            
+                            if( ! updateStarted ) {
+                                currentGamePage = finalMessagePage;
+                                
+                                finalMessagePage->setMessageKey( 
+                                    "upgradeMessage" );
+                                
+                                currentGamePage->base_makeActive( true );
+                                }
+                            else {
+                                currentGamePage = autoUpdatePage;
+                                currentGamePage->base_makeActive( true );
+                                }
+                            }
                         }
                     else {
                         // up to date, okay to connect
@@ -1914,6 +1977,21 @@ void drawFrame( char inUpdate ) {
 
                 currentGamePage->base_makeActive( true );
                 }
+            else if( livingLifePage->checkSignal( "serverUpdate" ) ) {
+                lastScreenViewCenter.x = 0;
+                lastScreenViewCenter.y = 0;
+
+                setViewCenterPosition( lastScreenViewCenter.x, 
+                                       lastScreenViewCenter.y );
+                
+                currentGamePage = existingAccountPage;
+                
+                existingAccountPage->setStatus( "serverUpdate", true );
+
+                existingAccountPage->setStatusPositiion( true );
+
+                currentGamePage->base_makeActive( true );
+                }
             else if( livingLifePage->checkSignal( "serverFull" ) ) {
                 lastScreenViewCenter.x = 0;
                 lastScreenViewCenter.y = 0;
@@ -1931,6 +2009,9 @@ void drawFrame( char inUpdate ) {
                 }
             else if( livingLifePage->checkSignal( "died" ) ) {
                 showDiedPage();
+                }
+            else if( livingLifePage->checkSignal( "disconnect" ) ) {
+                showReconnectPage();
                 }
             else if( livingLifePage->checkSignal( "loadFailure" ) ) {
                 currentGamePage = finalMessagePage;
@@ -1959,8 +2040,12 @@ void drawFrame( char inUpdate ) {
                 
                 extendedMessagePage->setSubMessage( "" );
                 
-                currentGamePage = rebirthChoicePage;
-                
+                if( userReconnect ) {
+                    currentGamePage = livingLifePage;
+                    }
+                else {
+                    currentGamePage = rebirthChoicePage;
+                    }
                 currentGamePage->base_makeActive( true );
                 }
             }

@@ -4,6 +4,112 @@ http://onehouronelife.com/updateLog.php
 
 
 
+Version 157    2018-October-26
+
+--Client handles disconnection with better messaging (no longer describes it as
+  death), and attempts reconnection when the user is ready.
+
+--Instant local response to jump-out-of-arms attempt (baby wiggles a bit).
+  This makes it feel much more responsive when you are perma-held by your own
+  mother and click.
+
+--Import editor now allows shift and ctrl for bigger jumps when paging through
+  past imports.  Line layer accumulation is no longer the default (rarely used,
+  and it was a pain to delete line layers when trying to page through).
+  Instead, holding A key triggers adding a line layer, but replace is default
+  when importing or paging through old imports.
+
+--Dramatic speed up in object bank load by not counting live sound uses and
+  expanding animation bank in batches of 100 instead of 1.  Result is 3.4x
+  overall speed up in object bank loading, and 16x speed up for used object
+  generation, and 2x speed up for variable object generation.  Was wondering
+  why server startup was so much faster than client startup---it was because it
+  has no animation bank, so dynamic object generation didn't require
+  duplication of animation bank records.
+
+
+
+Server Fixes
+
+--Server now keeps disconnected players alive instead of killing them, allowing
+  them to reconnect later and resume their life, assuming that they don't die
+  of in-game causes first.
+
+--Babies blocked from wiggling out of own mothers's arms until age 3.
+
+
+
+
+
+Steam-specific updates
+
+--Hide Post Review buttons on Steam version of client.
+
+--Shift-Tab to go back through hints doesn't work on Steam (shows overlay).
+  Z-tab instead.
+
+--steamGateClient now waits for game to exit (fixes Steam playtime tracking).
+
+
+
+Version 155    2018-October-19
+
+--Scene editor now displays behind-player sprite layers correctly.
+
+--Walls with container slots (sign walls) now drawn in front of other walls,
+  so signs not covered up.  Fixes #74
+
+--Lowered the minimum height for objects that are mouse-through-able (that
+  allow hidden objects behind to be clicked).  Fixes #82
+
+--Fixed double sound play when use-on-bare-ground produces something new in
+  hand and on ground (example:  unroping calf).
+
+--Support for displaying cursed player's excess curse score to them.
+
+--If we have a newer data version than the official servers, assume that
+  servers are in the process of updating, and display that message instead of
+  a confusing version missmatch message (Steam data update is pushed out before
+  the old-version Odd servers are shut down).
+
+--useSteamUpdate setting bypasses internal updater and displays QUIT message to
+  user with instructions.
+
+--Back to 10 seconds for wild bug reports.  5 is too short (sometimes there are
+  5+ second network delays).
+
+--Whoops... fix for multiple sounds playing failed to check for case when
+  target object doesn't change (exmaple: cooking over hot coals).
+  Fixes #67,  Fixes #68
+
+
+
+Server Fixes
+
+--Default bare-hand action doesn't apply when holding something if the target
+  object is a container (we want to insert item into container in that case).
+  Fixes #64
+
+--Use-on-bare-ground action automatically applies when swapping held with item
+  on ground, inserting held into container, or swapping held with container.
+  Bare-hand pickup-style action automatically applies when removing item from a
+  container or obtaining something new as the result of a swap.  This means
+  that wild piglets and goose, which are containable, but still supposed to go
+  through a transition when picked up or set down, do not get stuck in their
+  held state when swapped or put in a container.  Fixes #66
+
+--Fixed so that client EMOT requests are processed (just like SAY requests)
+  while a player is moving or while held as a baby.
+  Fixes jasonrohrer/OneLifeData7#23 
+
+--Held baby can now be used to open doors, trigger carts, etc.  Fixes #75
+
+--Improved logging around FORCE ack message failure.
+
+--Players born cursed in Donkey Town no longer get a cursed token to spend.
+
+
+
 Version 153    2018-October-12
 
 --FINALLY found an additional cause of the bouncing-forever bug (stale MOVE
@@ -20,6 +126,7 @@ NOTE:  Rolling this out will require a special update process.
     2.  Update client.
     3.  Check in requireClientForceAck.ini '1' setting for server.
     4   Run remoteServerGitPull.sh
+--SPECIAL UPDATE PROCESS COMPLETE--
 ****
 
 --Scene editor allows bigger jumps when paging through scenes.
